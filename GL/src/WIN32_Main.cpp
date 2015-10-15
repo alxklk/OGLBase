@@ -1,75 +1,128 @@
 #define _WIN32_WINNT 0x0501
 
-char const* AppName="Untitled";
+char const* AppName="GL Test";
 
 #include <Windows.h>
 #include <WinGDI.h>
 
-
 #include <gl/GL.h>
 #include "glext.h"
 #include "wglext.h"
+#include "FIMM.h"
 
 
-PFNGLCREATESHADERPROC         glCreateShader        ;
-PFNGLSHADERSOURCEPROC         glShaderSource        ;
-PFNGLCOMPILESHADERPROC        glCompileShader       ;
-PFNGLGETSHADERIVPROC          glGetShaderiv         ;
-PFNGLGETSHADERINFOLOGPROC     glGetShaderInfoLog    ;
-PFNGLCREATEPROGRAMPROC        glCreateProgram       ;
-PFNGLATTACHSHADERPROC         glAttachShader        ;
-PFNGLLINKPROGRAMPROC          glLinkProgram         ;
-PFNGLUSEPROGRAMPROC           glUseProgram          ;
+PFNGLCREATESHADERPROC                  glCreateShader                           ;
+PFNGLSHADERSOURCEPROC                  glShaderSource                           ;
+PFNGLCOMPILESHADERPROC                 glCompileShader                          ;
+PFNGLGETSHADERIVPROC                   glGetShaderiv                            ;
+PFNGLGETSHADERINFOLOGPROC              glGetShaderInfoLog                       ;
+PFNGLCREATEPROGRAMPROC                 glCreateProgram                          ;
+PFNGLATTACHSHADERPROC                  glAttachShader                           ;
+PFNGLLINKPROGRAMPROC                   glLinkProgram                            ;
+PFNGLUSEPROGRAMPROC                    glUseProgram                             ;
+PFNGLGENBUFFERSPROC                    glGenBuffers                             ;
+PFNGLDELETEBUFFERSPROC                 glDeleteBuffers                          ;
+PFNGLBINDBUFFERPROC                    glBindBuffer                             ;
+PFNGLBUFFERDATAPROC                    glBufferData                             ;
+PFNGLMAPBUFFERPROC                     glMapBuffer                              ;
+PFNGLUNMAPBUFFERPROC                   glUnmapBuffer                            ;
+PFNGLVERTEXATTRIBPOINTERPROC           glVertexAttribPointer                    ;
+PFNGLGETATTRIBLOCATIONPROC             glGetAttribLocation                      ;
+PFNGLENABLEVERTEXATTRIBARRAYPROC       glEnableVertexAttribArray                ;
+
+struct SAppState
+{
+public:
+	bool quitRequested;
+	bool reloadShaders;
+	int frameStamp;
+
+	SAppState():
+		quitRequested(false),
+		reloadShaders(true),
+		frameStamp(0)
+	{
+
+	}
+}gAppState;
+
+
+
+void LOG(const char* logtext, int level=0)
+{
+	OutputDebugString(logtext);
+//	puts(logtext);
+}
+
 
 class GLShader
 {
 	int vsh;
-	int psh;
+	int fsh;
 	int p;
 public:
-	bool Create(const char* vstext, const char* pstext)
+	bool Create(const char* vstext, const char* fstext, int vslen=0, int fslen=0)
 	{
 		vsh=glCreateShader(GL_VERTEX_SHADER);
-		psh=glCreateShader(GL_FRAGMENT_SHADER);
-		glShaderSource(vsh, 1, &vstext, 0);
-		glShaderSource(psh, 1, &pstext, 0);
+		fsh=glCreateShader(GL_FRAGMENT_SHADER);
+		glShaderSource(vsh, 1, &vstext, &vslen);
+		glShaderSource(fsh, 1, &fstext, &fslen);
 
 		GLint ok;
-		char errorbuf[1024];
+		const int errbufsize=4096;
+		char errorbuf[errbufsize];
 		int errorlen=0;
-			
 			
 		glCompileShader(vsh);
 		glGetShaderiv(vsh, GL_COMPILE_STATUS, &ok);
 		if(!ok)
 		{
-			glGetShaderInfoLog(vsh, 1024, &errorlen, errorbuf);
-			OutputDebugString(errorbuf);
+			LOG("\nError in vertex shader\n");
+			glGetShaderInfoLog(vsh, errbufsize, &errorlen, errorbuf);
+			LOG(errorbuf);
+			if(errorlen>errbufsize)
+				LOG("... \nError text clipped\n");
 			return false;
 		}	
 
-		glCompileShader(psh);
-		glGetShaderiv(psh, GL_COMPILE_STATUS, &ok);
+		glCompileShader(fsh);
+		glGetShaderiv(fsh, GL_COMPILE_STATUS, &ok);
 		if(!ok)
 		{
-			glGetShaderInfoLog(psh, 1024, &errorlen, errorbuf);
-			OutputDebugString(errorbuf);
+			LOG("\nError in fragment shader\n");
+			glGetShaderInfoLog(fsh, errbufsize, &errorlen, errorbuf);
+			LOG(errorbuf);
+			if(errorlen>errbufsize)
+				LOG("... \nError text clipped\n");
 			return false;
 		}
 		p=glCreateProgram();
 		glAttachShader(p,vsh);
-		glAttachShader(p,psh);
+		glAttachShader(p,fsh);
 		glLinkProgram(p);
 		return true;
 	}
-	bool CreateFromFile(const char* filename)
+	bool CreateFromFile(const char* vsfilename, const char* fsfilename)
 	{
+		CFIMM vsfi;
+		CFIMM fsfi;
+
+		vsfi.Open(vsfilename);
+		fsfi.Open(fsfilename);
+
+		if(vsfi.Addr()&&vsfi.Addr())
+		{
+			return Create(vsfi.CAddr(),fsfi.CAddr(),vsfi.GetSize(),fsfi.GetSize());
+		}
+		LOG("\nShader source file - ?\n");
+		return false;
 	}
 	bool Use()
 	{
 		glUseProgram(p);
 		return true;
 	}
+	int GetPName()const{return p;}
 };
 
 
@@ -121,13 +174,7 @@ public:
 };
 
 
-
-
-
-
-
-HWND wnd;
-void stop(HWND hwnd,unsigned int imsg,WPARAM wpar,LPARAM lpar)
+HWND wnd;void stop(HWND hwnd,unsigned int imsg,WPARAM wpar,LPARAM lpar)
 {
 	PostQuitMessage(0);
 }
@@ -148,85 +195,99 @@ LRESULT CALLBACK wp(HWND hwnd,unsigned int imsg,WPARAM wpar,LPARAM lpar)
 	{
 		stop(hwnd,imsg,wpar,lpar);
 	}
+	else if(imsg==WM_KEYDOWN)
+	{
+		if(wpar==VK_F5)
+		{
+			LOG("\nReload shaders\n");
+			gAppState.reloadShaders=true;
+		}
+		else if(wpar==VK_ESCAPE)
+		{
+			gAppState.quitRequested=true;
+		}
+	}
+
 	return DefWindowProc(hwnd,imsg,wpar,lpar);
 }
 
 int W=640;
 int H=480;
 
-#ifdef _DEBUG
+#include "cat_ib.h"
+#include "cat_vb.h"
+
+const int vbsize=sizeof(vb);
+const int ibsize=sizeof(ib);
+const int vertxcount=vbsize/sizeof(vb[0]);
+const int indexcount=ibsize/sizeof(ib[0]);
+
 int __cdecl main(int argc, char* argv[])
-#else
-
-int* __cdecl _errno(){return 0;};
-
-extern "C"
-void __cdecl start()
-#endif
 {
-	WNDCLASSEX wc={sizeof(WNDCLASSEX),0,wp,0,0,0,0,0,0,0,"BrickGameWindowClass"};
-	RegisterClassEx(&wc);
-	wnd=CreateWindowEx(WS_EX_APPWINDOW,"BrickGameWindowClass",AppName,WS_POPUP,CW_USEDEFAULT,CW_USEDEFAULT,W,H,0,0,0,0);
+	HCURSOR arrowCursor=LoadCursor(0, IDC_ARROW);
 
-	ShowWindow(wnd,SW_SHOWNORMAL);
-	UpdateWindow(wnd);
+	WNDCLASSEX wc={sizeof(WNDCLASSEX), 0, wp, 0, 0, 0, 0, 0, 0, 0, "GLAP301"};
+	wc.hCursor=arrowCursor;
+	RegisterClassEx(&wc);
+
+	RECT wrect={0, 0, W, H};
+	AdjustWindowRectEx(&wrect, WS_OVERLAPPEDWINDOW, FALSE, WS_EX_APPWINDOW);
+	HWND win=CreateWindowEx(WS_EX_APPWINDOW, "GLAP301", "Render Window", WS_OVERLAPPEDWINDOW, 0, 0,
+		wrect.right-wrect.left, wrect.bottom-wrect.top, 0, 0, 0, 0);
+
+	ShowWindow(win, SW_SHOWNORMAL);
+	UpdateWindow(win);
 
 	MSG msg={0,0,0,0,0,{0,0}};
 
-	CUIGL ui;
-	ui.Init(W,H,1,1,wnd);
+	CUIGL GL;
+	GL.Init(W,H,1,1,win);
 
-	/*PFNGLCREATESHADERPROC         */glCreateShader        =(PFNGLCREATESHADERPROC)         wglGetProcAddress("glCreateShader"        );
-	/*PFNGLSHADERSOURCEPROC         */glShaderSource        =(PFNGLSHADERSOURCEPROC)         wglGetProcAddress("glShaderSource"        );
-	/*PFNGLCOMPILESHADERPROC        */glCompileShader       =(PFNGLCOMPILESHADERPROC)        wglGetProcAddress("glCompileShader"       );
-	/*PFNGLGETSHADERIVPROC          */glGetShaderiv         =(PFNGLGETSHADERIVPROC)          wglGetProcAddress("glGetShaderiv"         );
-	/*PFNGLGETSHADERINFOLOGPROC     */glGetShaderInfoLog    =(PFNGLGETSHADERINFOLOGPROC)     wglGetProcAddress("glGetShaderInfoLog"    );
-	/*PFNGLCREATEPROGRAMPROC        */glCreateProgram       =(PFNGLCREATEPROGRAMPROC)        wglGetProcAddress("glCreateProgram"       );
-	/*PFNGLATTACHSHADERPROC         */glAttachShader        =(PFNGLATTACHSHADERPROC)         wglGetProcAddress("glAttachShader"        );
-	/*PFNGLLINKPROGRAMPROC          */glLinkProgram         =(PFNGLLINKPROGRAMPROC)          wglGetProcAddress("glLinkProgram"         );
-	/*PFNGLUSEPROGRAMPROC           */glUseProgram          =(PFNGLUSEPROGRAMPROC)           wglGetProcAddress("glUseProgram"          );
+	/*PFNGLCREATESHADERPROC             */glCreateShader              =(PFNGLCREATESHADERPROC)              wglGetProcAddress("glCreateShader"              );
+	/*PFNGLSHADERSOURCEPROC             */glShaderSource              =(PFNGLSHADERSOURCEPROC)              wglGetProcAddress("glShaderSource"              );
+	/*PFNGLCOMPILESHADERPROC            */glCompileShader             =(PFNGLCOMPILESHADERPROC)             wglGetProcAddress("glCompileShader"             );
+	/*PFNGLGETSHADERIVPROC              */glGetShaderiv               =(PFNGLGETSHADERIVPROC)               wglGetProcAddress("glGetShaderiv"               );
+	/*PFNGLGETSHADERINFOLOGPROC         */glGetShaderInfoLog          =(PFNGLGETSHADERINFOLOGPROC)          wglGetProcAddress("glGetShaderInfoLog"          );
+	/*PFNGLCREATEPROGRAMPROC            */glCreateProgram             =(PFNGLCREATEPROGRAMPROC)             wglGetProcAddress("glCreateProgram"             );
+	/*PFNGLATTACHSHADERPROC             */glAttachShader              =(PFNGLATTACHSHADERPROC)              wglGetProcAddress("glAttachShader"              );
+	/*PFNGLLINKPROGRAMPROC              */glLinkProgram               =(PFNGLLINKPROGRAMPROC)               wglGetProcAddress("glLinkProgram"               );
+	/*PFNGLUSEPROGRAMPROC               */glUseProgram                =(PFNGLUSEPROGRAMPROC)                wglGetProcAddress("glUseProgram"                );
+	/*PFNGLGENBUFFERSPROC               */glGenBuffers                =(PFNGLGENBUFFERSPROC)                wglGetProcAddress("glGenBuffers"                );
+	/*PFNGLDELETEBUFFERSPROC            */glDeleteBuffers             =(PFNGLDELETEBUFFERSPROC)             wglGetProcAddress("glDeleteBuffers"             );
+	/*PFNGLBINDBUFFERPROC               */glBindBuffer                =(PFNGLBINDBUFFERPROC)                wglGetProcAddress("glBindBuffer"                );
+	/*PFNGLBUFFERDATAPROC               */glBufferData                =(PFNGLBUFFERDATAPROC)                wglGetProcAddress("glBufferData"                );
+	/*PFNGLMAPBUFFERPROC                */glMapBuffer                 =(PFNGLMAPBUFFERPROC)                 wglGetProcAddress("glMapBuffer"                 );
+	/*PFNGLUNMAPBUFFERPROC              */glUnmapBuffer               =(PFNGLUNMAPBUFFERPROC)               wglGetProcAddress("glUnmapBuffer"               );
+	/*PFNGLVERTEXATTRIBPOINTERPROC      */glVertexAttribPointer       =(PFNGLVERTEXATTRIBPOINTERPROC)       wglGetProcAddress("glVertexAttribPointer"       );
+	/*PFNGLGETATTRIBLOCATIONPROC        */glGetAttribLocation         =(PFNGLGETATTRIBLOCATIONPROC)         wglGetProcAddress("glGetAttribLocation"         );
+	/*PFNGLENABLEVERTEXATTRIBARRAYPROC  */glEnableVertexAttribArray   =(PFNGLENABLEVERTEXATTRIBARRAYPROC)   wglGetProcAddress("glEnableVertexAttribArray"   );
 
-	GLuint textureA;
-	glEnable(GL_TEXTURE_2D);
-	glGenTextures(1, &textureA);
-	glBindTexture(GL_TEXTURE_2D, textureA);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, W, H, 0, GL_RGBA,  GL_UNSIGNED_BYTE, NULL);
+	GLuint ibo=-1;
+	glGenBuffers(1, &ibo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, ibsize, ib, GL_STATIC_DRAW);
+//	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-			
-			const GLchar* vshtext=
-			"varying vec2 v_p;"
-			"void main(){"
-			"gl_Position=gl_Vertex;"
-			"v_p=gl_Vertex.xy/2.0+0.5;"
-			"v_p.y=1.0-v_p.y;"
-			"}"
-			;
-			const GLchar* pshtext=
-			"uniform sampler2D tex;"
-			"uniform vec2 mp;"
-			"varying vec2 v_p;"
-			" void main(){"
-			" vec2 tc=v_p;"
-			"tc.x+=sin(v_p.y*5.0)*0.1;"
-			"tc.y+=sin(v_p.x*5.0)*0.1;"
-			"vec4 c=texture2D(tex, tc.xy);"
-			"gl_FragColor=c;"
-			"if(c.r>0.0)"
-			"gl_FragColor=vec4(1.0,0.0,0.0,1.0);"
-			"else "
-			"gl_FragColor=vec4(1.0,1.0,0.0,1.0);"
-			"}";
-			
-			//		const GLchar* pshtext="varying vec3 v_p; void main(){gl_FragColor=vec4(v_p.x, v_p.y, 0.0, 1.0);}";
-			
-			GLShader sh;
-			sh.Create(vshtext, pshtext);
+	GLuint vbo=-1;
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, vbsize, vb, GL_STATIC_DRAW);
 
+//	glVertexPointer(3, GL_FLOAT, sizeof(vb[0])*16, 0);
+//	glNormalPointer(GL_FLOAT, sizeof(vb[0])*16, (void*)(sizeof(vb[0])*3));
+//	glTangentPointer(3, GL_FLOAT, sizeof(vb[0])*16, 0);
+//	glBinormalPointer(3, GL_FLOAT, sizeof(vb[0])*16, 0);
+//	glTexCoordPointer(2, GL_FLOAT, sizeof(vb[0])*16, 0);
 
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vb[0])*16, (void*)(0*sizeof(float)));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vb[0])*16, (void*)(12*sizeof(float)));
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+
+	//	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glEnableClientState(GL_VERTEX_ARRAY);
+
+	GLShader sh;
 	while(1)
 	{
 		while(PeekMessage(&msg,0,0,0,PM_REMOVE))
@@ -237,55 +298,39 @@ void __cdecl start()
 				break;
 		}
 
-		glUseProgram(0);
-
-		glClearColor(0.3f,0.5f,0.7f,0.5f);
-		glClear(GL_COLOR_BUFFER_BIT);
-
-		glDisable(GL_TEXTURE_2D);
-
-		glBegin(GL_TRIANGLES);
-		
-		glColor3ub(1,0,0);
-		glVertex2f(-1.0, -1.0); 
-		glVertex2f(-1.0,  1.0); 
-		glVertex2f( 1.0,  1.0);
-
-		glColor3ub(0,1,0);
-		glVertex2f(-0.3,-0.3); 
-		glVertex2f(-0.3, 0.3); 
-		glVertex2f( 0.3, 0.3);
-		
-		glEnd();
+		if(gAppState.reloadShaders)
+		{
+			sh.CreateFromFile("..\\src\\model.vs","..\\src\\model.fs");
+			gAppState.reloadShaders=false;
+		}
 
 		sh.Use();
-		glBindTexture(GL_TEXTURE_2D, textureA);
+
+//		int apos = glGetAttribLocation(sh.GetPName(), "in_Normal");
+//		glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(vb[0])*16, (void*)(8*sizeof(float)));
 
 		glClearColor(0.8f,0.6f,0.5f,1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		glEnable(GL_TEXTURE_2D);
-
+//		glEnable(GL_TEXTURE_2D);
+/*
 		glBegin(GL_TRIANGLES);
-		glColor3f(1,1,1);
-		glTexCoord2f(0, 1); glVertex2f(-1.0,-1.0); 
-		glTexCoord2f(0, 0); glVertex2f(-1.0, 1.0); 
-		glTexCoord2f(1, 0); glVertex2f( 1.0, 1.0);
-		glTexCoord2f(0, 1); glVertex2f(-1.0,-1.0); 
-		glTexCoord2f(1, 1); glVertex2f( 1.0,-1.0); 
-		glTexCoord2f(1, 0); glVertex2f( 1.0, 1.0);
+		glColor3f(1,0,1);
+		glTexCoord2f(0, 1); glVertex3f(-0.5,-1.0, 0.5); 
+		glTexCoord2f(0, 0); glVertex3f(-0.5, 1.0, 0.5); 
+		glTexCoord2f(1, 0); glVertex3f( 0.5, 1.0, 0.5);
+		glTexCoord2f(0, 1); glVertex3f(-0.5,-1.0, 0.5); 
+		glTexCoord2f(1, 1); glVertex3f( 0.5,-1.0, 0.5); 
+		glTexCoord2f(1, 0); glVertex3f( 0.5, 1.0, 0.5);
 		glEnd();
-
-
-		ui.FrameEnd();
-		Sleep(10);
+*/
+		glDrawElements(GL_TRIANGLES, indexcount, GL_UNSIGNED_INT, 0);
+		GL.FrameEnd();
 		if(msg.message==WM_QUIT)
 			break;
+		if(gAppState.quitRequested)
+			break;
+		Sleep(10);
 	}
-#ifdef _DEBUG
 	return 0;
-#else
-	ExitProcess(0);
-#endif
-
 };

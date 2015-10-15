@@ -13,6 +13,13 @@
   <ItemGroup>
     <ClCompile Include="..\src\WIN32_Main.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src\model.fs" />
+    <None Include="..\src\model.vs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\FIMM.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{44E0F89C-0DB3-41D7-B06B-E2964287ECEA}</ProjectGuid>
     <RootNamespace>Main</RootNamespace>
