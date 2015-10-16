@@ -10,8 +10,10 @@ char const* AppName="GL Test";
 #include "wglext.h"
 #include "FIMM.h"
 #include "picopng.h"
+#include "matrix.h"
 
 #include <stdio.h>
+#include <math.h>
 
 
 PFNGLCREATESHADERPROC                  glCreateShader                           ;
@@ -35,6 +37,8 @@ PFNGLENABLEVERTEXATTRIBARRAYPROC       glEnableVertexAttribArray                
 PFNGLACTIVETEXTUREPROC                 glActiveTexture                          ;
 PFNGLPROGRAMUNIFORM1IPROC              glProgramUniform1i                       ;
 PFNGLGETUNIFORMLOCATIONPROC            glGetUniformLocation                     ;
+PFNGLPROGRAMUNIFORM4FPROC              glProgramUniform4f                       ;
+PFNGLPROGRAMUNIFORMMATRIX4FVPROC       glProgramUniformMatrix4fv                ;
 
 struct SAppState
 {
@@ -52,14 +56,29 @@ public:
 	}
 }gAppState;
 
-
-
 void LOG(const char* logtext, int level=0)
 {
 	OutputDebugString(logtext);
 //	puts(logtext);
 }
 
+template <typename T> static bool wglProc(T*& funcp, const char* name)
+{
+	{
+		void* p= (void*)wglGetProcAddress(name);
+		if (p)
+		{
+			funcp=(T*)p;
+			return true;
+		}
+		LOG("Unknown function ");
+		LOG(name);
+		LOG("\n");
+		return false;
+	}
+};
+
+#define WGLPROC(p) wglProc(p, #p)
 
 class GLShader
 {
@@ -336,27 +355,32 @@ int __cdecl main(int argc, char* argv[])
 	CUIGL GL;
 	GL.Init(W,H,1,1,win);
 
-	/*PFNGLCREATESHADERPROC             */glCreateShader              =(PFNGLCREATESHADERPROC)              wglGetProcAddress("glCreateShader"              );
-	/*PFNGLSHADERSOURCEPROC             */glShaderSource              =(PFNGLSHADERSOURCEPROC)              wglGetProcAddress("glShaderSource"              );
-	/*PFNGLCOMPILESHADERPROC            */glCompileShader             =(PFNGLCOMPILESHADERPROC)             wglGetProcAddress("glCompileShader"             );
-	/*PFNGLGETSHADERIVPROC              */glGetShaderiv               =(PFNGLGETSHADERIVPROC)               wglGetProcAddress("glGetShaderiv"               );
-	/*PFNGLGETSHADERINFOLOGPROC         */glGetShaderInfoLog          =(PFNGLGETSHADERINFOLOGPROC)          wglGetProcAddress("glGetShaderInfoLog"          );
-	/*PFNGLCREATEPROGRAMPROC            */glCreateProgram             =(PFNGLCREATEPROGRAMPROC)             wglGetProcAddress("glCreateProgram"             );
-	/*PFNGLATTACHSHADERPROC             */glAttachShader              =(PFNGLATTACHSHADERPROC)              wglGetProcAddress("glAttachShader"              );
-	/*PFNGLLINKPROGRAMPROC              */glLinkProgram               =(PFNGLLINKPROGRAMPROC)               wglGetProcAddress("glLinkProgram"               );
-	/*PFNGLUSEPROGRAMPROC               */glUseProgram                =(PFNGLUSEPROGRAMPROC)                wglGetProcAddress("glUseProgram"                );
-	/*PFNGLGENBUFFERSPROC               */glGenBuffers                =(PFNGLGENBUFFERSPROC)                wglGetProcAddress("glGenBuffers"                );
-	/*PFNGLDELETEBUFFERSPROC            */glDeleteBuffers             =(PFNGLDELETEBUFFERSPROC)             wglGetProcAddress("glDeleteBuffers"             );
-	/*PFNGLBINDBUFFERPROC               */glBindBuffer                =(PFNGLBINDBUFFERPROC)                wglGetProcAddress("glBindBuffer"                );
-	/*PFNGLBUFFERDATAPROC               */glBufferData                =(PFNGLBUFFERDATAPROC)                wglGetProcAddress("glBufferData"                );
-	/*PFNGLMAPBUFFERPROC                */glMapBuffer                 =(PFNGLMAPBUFFERPROC)                 wglGetProcAddress("glMapBuffer"                 );
-	/*PFNGLUNMAPBUFFERPROC              */glUnmapBuffer               =(PFNGLUNMAPBUFFERPROC)               wglGetProcAddress("glUnmapBuffer"               );
-	/*PFNGLVERTEXATTRIBPOINTERPROC      */glVertexAttribPointer       =(PFNGLVERTEXATTRIBPOINTERPROC)       wglGetProcAddress("glVertexAttribPointer"       );
-	/*PFNGLGETATTRIBLOCATIONPROC        */glGetAttribLocation         =(PFNGLGETATTRIBLOCATIONPROC)         wglGetProcAddress("glGetAttribLocation"         );
-	/*PFNGLENABLEVERTEXATTRIBARRAYPROC  */glEnableVertexAttribArray   =(PFNGLENABLEVERTEXATTRIBARRAYPROC)   wglGetProcAddress("glEnableVertexAttribArray"   );
-	/*PFNGLACTIVETEXTUREPROC            */glActiveTexture             =(PFNGLACTIVETEXTUREPROC)             wglGetProcAddress("glActiveTexture"             );
-	/*PFNGLPROGRAMUNIFORM1IPROC         */glProgramUniform1i          =(PFNGLPROGRAMUNIFORM1IPROC)          wglGetProcAddress("glProgramUniform1i"          );
-	/*PFNGLGETUNIFORMLOCATIONPROC       */glGetUniformLocation        =(PFNGLGETUNIFORMLOCATIONPROC)        wglGetProcAddress("glGetUniformLocation"        );
+	WGLPROC(glCreateShader             );
+	WGLPROC(glShaderSource             );
+	WGLPROC(glCompileShader            );
+	WGLPROC(glGetShaderiv              );
+	WGLPROC(glGetShaderInfoLog         );
+	WGLPROC(glCreateProgram            );
+	WGLPROC(glAttachShader             );
+	WGLPROC(glLinkProgram              );
+	WGLPROC(glUseProgram               );
+	WGLPROC(glGenBuffers               );
+	WGLPROC(glDeleteBuffers            );
+	WGLPROC(glBindBuffer               );
+	WGLPROC(glBufferData               );
+	WGLPROC(glMapBuffer                );
+	WGLPROC(glUnmapBuffer              );
+	WGLPROC(glVertexAttribPointer      );
+	WGLPROC(glGetAttribLocation        );
+	WGLPROC(glEnableVertexAttribArray  );
+	WGLPROC(glActiveTexture            );
+	WGLPROC(glGetUniformLocation       );
+	WGLPROC(glProgramUniform1i         );
+	WGLPROC(glProgramUniform4f         );
+	WGLPROC(glProgramUniformMatrix4fv  );
+
+
+
 
 	GLuint ibo=-1;
 	glGenBuffers(1, &ibo);
@@ -384,8 +408,10 @@ int __cdecl main(int argc, char* argv[])
 
 	glEnable(GL_DEPTH);
 
-	GLuint tex=LoadTexture("..\\bin\\data\\body_diff.png");
-	GLuint norm=LoadTexture("..\\bin\\data\\body_norm.png");
+	GLuint body_tex =LoadTexture("..\\bin\\data\\body_diff.png");
+	GLuint body_norm=LoadTexture("..\\bin\\data\\body_norm.png");
+	GLuint fur_tex  =LoadTexture("..\\bin\\data\\fur_diff.png");
+	GLuint fur_norm =LoadTexture("..\\bin\\data\\fur_norm.png");
 
 	GLShader sh;
 	while(1)
@@ -408,13 +434,16 @@ int __cdecl main(int argc, char* argv[])
 //		int apos = glGetAttribLocation(sh.GetPName(), "in_Normal");
 //		glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(vb[0])*16, (void*)(8*sizeof(float)));
 
-//		GLint texUniform=glGetUniformLocation(sh.GetPName(), "sTex");
-		glProgramUniform1i(sh.GetPName(), 0, 0);
-		glProgramUniform1i(sh.GetPName(), 1, 1);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tex);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, norm);
+		GLint texUniform=glGetUniformLocation(sh.GetPName(), "sTex");
+		GLint normUniform=glGetUniformLocation(sh.GetPName(), "sNor");
+		glProgramUniform1i(sh.GetPName(), 5, 0);
+		glProgramUniform1i(sh.GetPName(), 6, 1);
+		float4x4 wm;
+		static float t=0;
+		wm.RotationY(sin(t), cos(t));
+		t+=0.01;
+
+		glProgramUniformMatrix4fv(sh.GetPName(), 0, 1, false, &wm.m00);
 
 		glClearColor(0.8f, 0.6f, 0.5f, 1.0f);
 		glClearDepth(1.0f);
@@ -425,7 +454,20 @@ int __cdecl main(int argc, char* argv[])
 		glCullFace(GL_FRONT_AND_BACK);
 		sh.Use();
 
-		glDrawElements(GL_TRIANGLES, indexcount, GL_UNSIGNED_INT, 0);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, body_tex);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, body_norm);
+
+		glDrawElements(GL_TRIANGLES, (4340*3), GL_UNSIGNED_INT, 0);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, fur_tex);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, fur_norm);
+
+		glDrawElements(GL_TRIANGLES, indexcount-(4340*3), GL_UNSIGNED_INT, (void*)(4340*3*4));
+
 		GL.FrameEnd();
 		if(msg.message==WM_QUIT)
 			break;
