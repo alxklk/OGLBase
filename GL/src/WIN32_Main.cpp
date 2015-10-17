@@ -157,7 +157,7 @@ public:
 		vsfi.Open(vsfilename);
 		fsfi.Open(fsfilename);
 
-		if(vsfi.Addr()&&vsfi.Addr())
+		if(vsfi.Addr()&&vsfi.GetSize())
 		{
 			return Create(vsfi.CAddr(), fsfi.CAddr(), vsfi.GetSize(), fsfi.GetSize());
 		}
@@ -425,12 +425,6 @@ int __cdecl main(int argc, char* argv[])
 	glEnableVertexAttribArray(3);
 	glEnableVertexAttribArray(4);
 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4*16, (void*)(0*4));
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 4*16, (void*)(3*4));
-	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 4*16, (void*)(10*4));
-	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 4*16, (void*)(13*4));
-	glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, 4*16, (void*)(6*4));
-
 	glEnable(GL_DEPTH);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDepthFunc(GL_LESS);
@@ -462,10 +456,16 @@ int __cdecl main(int argc, char* argv[])
 		{
 			sh.CreateFromFile("data\\model.vs", "data\\model.fs");
 			gAppState.reloadShaders=false;
+
+			glVertexAttribPointer(glGetAttribLocation(sh.GetPName(), "i_pos"), 3, GL_FLOAT, GL_FALSE, 4*16, (void*)(0*4));
+			glVertexAttribPointer(glGetAttribLocation(sh.GetPName(), "i_nor"), 3, GL_FLOAT, GL_FALSE, 4*16, (void*)(3*4));
+			glVertexAttribPointer(glGetAttribLocation(sh.GetPName(), "i_tan"), 3, GL_FLOAT, GL_FALSE, 4*16, (void*)(10*4));
+			glVertexAttribPointer(glGetAttribLocation(sh.GetPName(), "i_bin"), 3, GL_FLOAT, GL_FALSE, 4*16, (void*)(13*4));
+			glVertexAttribPointer(glGetAttribLocation(sh.GetPName(), "i_tex"), 2, GL_FLOAT, GL_FALSE, 4*16, (void*)(6*4));
 		}
 
-		glProgramUniform1i(sh.GetPName(), 5, 0);
-		glProgramUniform1i(sh.GetPName(), 6, 1);
+		glProgramUniform1i(sh.GetPName(), glGetUniformLocation(sh.GetPName(),"sTex"), 0);
+		glProgramUniform1i(sh.GetPName(), glGetUniformLocation(sh.GetPName(),"sNor"), 1);
 
 		float4x4 wm;
 		wm=float4x4::Scale(0.05)
@@ -484,8 +484,9 @@ int __cdecl main(int argc, char* argv[])
 			*float4x4::RotY(-sin(camrx), cos(camrx))
 			;
 
-		glProgramUniformMatrix4fv(sh.GetPName(), 0, 1, false, &wm.m00);
-		glProgramUniformMatrix4fv(sh.GetPName(), 4, 1, false, &vpm.m00);
+		
+		glProgramUniformMatrix4fv(sh.GetPName(), glGetUniformLocation(sh.GetPName(),"u_wm" ), 1, false, &wm.m00);
+		glProgramUniformMatrix4fv(sh.GetPName(), glGetUniformLocation(sh.GetPName(),"u_vpm"), 1, false, &vpm.m00);
 
 		double time=timer.GetTime();
 
@@ -497,13 +498,13 @@ int __cdecl main(int argc, char* argv[])
 		float lightCol1[3]={0.3,0.7,1.0};
 		float lightCol2[3]={1.0,1.0,1.0};
 
-		glProgramUniform3f(sh.GetPName(), 7, lightPos0[0],lightPos0[1],lightPos0[2]);
-		glProgramUniform3f(sh.GetPName(), 8, lightPos1[0],lightPos1[1],lightPos1[2]);
-		glProgramUniform3f(sh.GetPName(), 9, lightPos2[0],lightPos2[1],lightPos2[2]);
+		glProgramUniform3f(sh.GetPName(), glGetUniformLocation(sh.GetPName(),"lightPos0"), lightPos0[0], lightPos0[1], lightPos0[2]);
+		glProgramUniform3f(sh.GetPName(), glGetUniformLocation(sh.GetPName(),"lightPos1"), lightPos1[0], lightPos1[1], lightPos1[2]);
+		glProgramUniform3f(sh.GetPName(), glGetUniformLocation(sh.GetPName(),"lightPos2"), lightPos2[0], lightPos2[1], lightPos2[2]);
 
-		glProgramUniform3f(sh.GetPName(), 10, lightCol0[0],lightCol0[1],lightCol0[2]);
-		glProgramUniform3f(sh.GetPName(), 11, lightCol1[0],lightCol1[1],lightCol1[2]);
-		glProgramUniform3f(sh.GetPName(), 12, lightCol2[0],lightCol2[1],lightCol2[2]);
+		glProgramUniform3f(sh.GetPName(), glGetUniformLocation(sh.GetPName(),"lightCol0"), lightCol0[0], lightCol0[1], lightCol0[2]);
+		glProgramUniform3f(sh.GetPName(), glGetUniformLocation(sh.GetPName(),"lightCol1"), lightCol1[0], lightCol1[1], lightCol1[2]);
+		glProgramUniform3f(sh.GetPName(), glGetUniformLocation(sh.GetPName(),"lightCol2"), lightCol2[0], lightCol2[1], lightCol2[2]);
 
 
 		glDepthMask(true);

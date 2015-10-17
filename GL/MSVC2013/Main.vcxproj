@@ -16,6 +16,10 @@
   <ItemGroup>
     <ClInclude Include="..\src\picopng.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\bin\data\model.fs" />
+    <None Include="..\bin\data\model.vs" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{44E0F89C-0DB3-41D7-B06B-E2964287ECEA}</ProjectGuid>
     <RootNamespace>Main</RootNamespace>

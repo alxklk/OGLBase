@@ -23,7 +23,7 @@ public:
 		{
 			afsize=::GetFileSize(af,0);
 			afmapping=CreateFileMapping(af,0,PAGE_READONLY,0,0,0);
-			if(afmapping==INVALID_HANDLE_VALUE)
+			if(afmapping==NULL)
 			{
 				::CloseHandle(af);
 				af=INVALID_HANDLE_VALUE;

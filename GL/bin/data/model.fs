@@ -1,21 +1,20 @@
 #version 400
-#extension GL_ARB_explicit_uniform_location : enable
 
 #define float3 vec3
 #define float2 vec2
 #define float4 vec4
 #define float4x4 mat4
 
-layout(location=5) uniform sampler2D sTex;
-layout(location=6) uniform sampler2D sNor;
+uniform sampler2D sTex;
+uniform sampler2D sNor;
 
-layout(location=7) uniform float3 lightPos0;
-layout(location=8) uniform float3 lightPos1;
-layout(location=9) uniform float3 lightPos2;
+uniform float3 lightPos0;
+uniform float3 lightPos1;
+uniform float3 lightPos2;
 
-layout(location=10) uniform float3 lightCol0;
-layout(location=11) uniform float3 lightCol1;
-layout(location=12) uniform float3 lightCol2;
+uniform float3 lightCol0;
+uniform float3 lightCol1;
+uniform float3 lightCol2;
 
 
 in float3 v_pos;
